@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>AgroVision — Детекция растений</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Bootstrap 5 -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+    crossorigin="anonymous"
+  />
+
+  <!-- Bootstrap Icons -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+  />
+
+  <!-- Шрифт -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <style>
+    body {
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #153448 0, #050816 40%, #020409 100%);
+      color: #f8f9fa;
+      min-height: 100vh;
+    }
+
+    .navbar-brand span {
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-subtitle {
+      max-width: 520px;
+      opacity: 0.8;
+    }
+
+    .glass-card {
+      background: rgba(15, 23, 42, 0.85);
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow:
+        0 20px 40px rgba(15, 23, 42, 0.7),
+        0 0 0 1px rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(14px);
+    }
+
+    .glass-card-header {
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .tab-pane {
+      padding-top: 1rem;
+    }
+
+    .preview-frame {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 */
+      background: radial-gradient(circle at center, #1f2933, #020617 70%);
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+
+    .preview-frame-inner {
+      position: absolute;
+      inset: 0;
+    }
+
+    .preview-frame img,
+    .preview-frame video,
+    .preview-frame canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .preview-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.6;
+      color: #e5e7eb;
+      text-align: center;
+      padding: 1.5rem;
+    }
+
+    .preview-placeholder i {
+      font-size: 2.8rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .badge-soft {
+      background-color: rgba(148, 163, 184, 0.15);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: #e5e7eb;
+    }
+
+    .metric-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .metric-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0.7;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: rgba(21, 128, 61, 0.12);
+      color: #bbf7d0;
+      border: 1px solid rgba(34, 197, 94, 0.4);
+    }
+
+    .status-pill i {
+      font-size: 0.8rem;
+    }
+
+    .table-dark.table-sm td,
+    .table-dark.table-sm th {
+      border-color: rgba(55, 65, 81, 0.8);
+    }
+
+    .footer-text {
+      font-size: 0.8rem;
+      opacity: 0.6;
+    }
+
+    .btn-glow {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-glow::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: conic-gradient(from 180deg, rgba(56, 189, 248, 0.4), rgba(34, 197, 94, 0.2), transparent 60%);
+      opacity: 0;
+      transition: opacity 0.25s ease-out;
+    }
+
+    .btn-glow:hover::before {
+      opacity: 1;
+    }
+
+    .btn-glow span {
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 991.98px) {
+      .hero-subtitle {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Навбар -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-transparent border-bottom border-secondary border-opacity-25">
+    <div class="container py-2">
+      <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+        <span class="bg-success bg-gradient rounded-circle d-inline-flex align-items-center justify-content-center"
+              style="width: 32px; height: 32px;">
+          <i class="bi bi-plant text-dark"></i>
+        </span>
+        <span>AgroVision</span>
+      </a>
+      <span class="navbar-text small text-secondary d-none d-md-inline">
+        Компьютерное зрение для теплиц &middot; YOLOv8 + FastAPI + Web
+      </span>
+    </div>
+  </nav>
+
+  <main class="container py-4 py-md-5">
+    <!-- Hero блок -->
+    <div class="row align-items-center mb-4 mb-md-5 g-4">
+      <div class="col-lg-7">
+        <h1 class="h2 h-md1 fw-bold mb-3">
+          Живой мониторинг посадок <span class="text-success">в реальном времени</span>
+        </h1>
+        <p class="hero-subtitle mb-3">
+          Загружайте снимки или подключайте камеру, а система автоматически считает растения,
+          подсвечивает проблемные зоны и готовит данные для управленческих решений.
+        </p>
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+          <span class="badge badge-soft rounded-pill">
+            <i class="bi bi-cpu me-1"></i> YOLOv8 Detect
+          </span>
+          <span class="badge badge-soft rounded-pill">
+            <i class="bi bi-lightning-charge me-1"></i> GPU-ready
+          </span>
+          <span class="badge badge-soft rounded-pill">
+            <i class="bi bi-diagram-3 me-1"></i> Интеграция с FastAPI
+          </span>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="glass-card p-3 p-md-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div class="metric-label mb-1">Текущий анализ</div>
+              <div id="summaryPlants" class="metric-value">–</div>
+            </div>
+            <div class="text-end">
+              <div class="metric-label mb-1">Время ответа</div>
+              <div id="summaryLatency" class="metric-value">–</div>
+            </div>
+          </div>
+          <div class="small mb-3 text-secondary">
+            <div id="summaryStatus">
+              Ожидание данных. Загрузите изображение или включите камеру, чтобы увидеть аналитику.
+            </div>
+          </div>
+          <div class="d-flex gap-3">
+            <div class="flex-fill small">
+              <div class="metric-label mb-1">Кадров в секунду</div>
+              <div id="summaryFps" class="metric-value">–</div>
+            </div>
+            <div class="flex-fill small">
+              <div class="metric-label mb-1">Модель</div>
+              <div id="summaryModel" class="metric-value" style="font-size: 1.05rem;">–</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Основной блок -->
+    <div class="row g-4">
+      <!-- Левая колонка: превью и управление -->
+      <div class="col-lg-8">
+        <div class="glass-card">
+          <div class="glass-card-header px-3 px-md-4 pt-3 pb-0">
+            <ul class="nav nav-tabs nav-fill" id="modeTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="upload-tab" data-bs-toggle="tab"
+                        data-bs-target="#upload-tab-pane" type="button" role="tab">
+                  <i class="bi bi-image me-1"></i>
+                  Загрузка изображения
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="camera-tab" data-bs-toggle="tab"
+                        data-bs-target="#camera-tab-pane" type="button" role="tab">
+                  <i class="bi bi-camera-video me-1"></i>
+                  Живая камера
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div class="tab-content px-3 px-md-4 pb-4" id="modeTabsContent">
+            <!-- Вкладка: Загрузка изображения -->
+            <div class="tab-pane fade show active" id="upload-tab-pane" role="tabpanel">
+              <div class="row g-3 align-items-center mb-3">
+                <div class="col-md-7">
+                  <label for="imageInput" class="form-label small text-secondary mb-1">
+                    Выберите изображение для анализа
+                  </label>
+                  <input class="form-control form-control-sm" type="file" id="imageInput"
+                         accept="image/*">
+                </div>
+                <div class="col-md-5 d-flex gap-2 justify-content-md-end">
+                  <button id="analyzeImageBtn" class="btn btn-success btn-sm btn-glow" disabled>
+                    <span><i class="bi bi-play-circle me-1"></i>Запустить анализ</span>
+                  </button>
+                  <button id="clearImageBtn" class="btn btn-outline-secondary btn-sm" disabled>
+                    <i class="bi bi-x-circle me-1"></i>Очистить
+                  </button>
+                </div>
+              </div>
+
+              <div class="preview-frame mb-2">
+                <div class="preview-frame-inner">
+                  <img id="uploadPreview" alt="" style="display: none;" />
+                  <canvas id="uploadCanvas" style="display: none;"></canvas>
+                  <div id="uploadPlaceholder" class="preview-placeholder">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <div class="mb-1">Перетащите сюда файл или выберите его выше</div>
+                    <div class="small text-secondary">
+                      Поддерживаются JPG, PNG. Мы детектируем растения и отобразим результат поверх.
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="uploadHint" class="small text-secondary">
+                Совет: используйте снимки сверху вниз или под небольшим углом, чтобы было проще
+                отделить растения друг от друга.
+              </div>
+            </div>
+
+            <!-- Вкладка: Живая камера -->
+            <div class="tab-pane fade" id="camera-tab-pane" role="tabpanel">
+              <div class="row g-3 align-items-center mb-3">
+                <div class="col-md-6 d-flex gap-2">
+                  <button id="startCameraBtn" class="btn btn-success btn-sm btn-glow">
+                    <span><i class="bi bi-camera-video me-1"></i>Включить камеру</span>
+                  </button>
+                  <button id="stopCameraBtn" class="btn btn-outline-secondary btn-sm" disabled>
+                    <i class="bi bi-stop-circle me-1"></i>Остановить</button>
+                </div>
+                <div class="col-md-6 d-flex gap-2 justify-content-md-end align-items-center">
+                  <label class="small text-secondary mb-0" for="fpsInput">
+                    Кадров в секунду:
+                  </label>
+                  <input id="fpsInput" type="number" class="form-control form-control-sm"
+                         value="2" min="0.2" max="15" step="0.2" style="width: 80px;">
+                </div>
+              </div>
+
+              <div class="preview-frame mb-2">
+                <div class="preview-frame-inner">
+                  <video id="cameraVideo" autoplay playsinline muted style="display: none;"></video>
+                  <canvas id="cameraCanvas" style="display: none;"></canvas>
+                  <div id="cameraPlaceholder" class="preview-placeholder">
+                    <i class="bi bi-camera-video"></i>
+                    <div class="mb-1">Камера пока выключена</div>
+                    <div class="small text-secondary">
+                      Нажмите «Включить камеру», чтобы запускать детекцию в реальном времени.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="cameraStatus" class="small text-secondary">
+                Камера выключена. После запуска мы будем отправлять кадры на сервер и отображать
+                результат детекции поверх видео.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Правая колонка: аналитика и детали -->
+      <div class="col-lg-4">
+        <div class="glass-card mb-3">
+          <div class="glass-card-header d-flex justify-content-between align-items-center px-3 px-md-4 py-3">
+            <div>
+              <div class="metric-label">Результаты анализа</div>
+              <div class="fw-semibold">Обнаруженные растения</div>
+            </div>
+            <div id="statusPill" class="status-pill d-none">
+              <i class="bi bi-check-circle"></i><span>Готово</span>
+            </div>
+          </div>
+          <div class="p-3 p-md-4">
+            <div class="row g-3 mb-3">
+              <div class="col-6">
+                <div class="metric-label mb-1">Всего растений</div>
+                <div id="metricTotal" class="metric-value">–</div>
+              </div>
+              <div class="col-6">
+                <div class="metric-label mb-1">Всего классов</div>
+                <div id="metricClasses" class="metric-value">–</div>
+              </div>
+            </div>
+
+            <div class="mb-2 d-flex justify-content-between align-items-center">
+              <span class="small text-secondary">Распределение по типам</span>
+            </div>
+
+            <div class="mb-3">
+              <table class="table table-dark table-sm mb-0 align-middle">
+                <thead>
+                  <tr class="small text-secondary">
+                    <th scope="col">Культура</th>
+                    <th scope="col">Кол-во</th>
+                    <th scope="col">Доля</th>
+                  </tr>
+                </thead>
+                <tbody id="classStatsBody">
+                  <tr class="small text-secondary">
+                    <td colspan="3">Пока нет данных. Запустите анализ.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="small text-secondary">
+              <div id="lastUpdated">Последнее обновление: –</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="glass-card-header px-3 px-md-4 py-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <div class="metric-label mb-1">Отладка и статус</div>
+                <div class="fw-semibold">Лог запросов</div>
+              </div>
+              <button id="clearLogBtn" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-trash3"></i>
+              </button>
+            </div>
+          </div>
+          <div class="p-3 p-md-4">
+            <div id="logArea" class="small text-secondary"
+                 style="max-height: 220px; overflow-y: auto; white-space: pre-wrap;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="container py-3">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
+      <div class="footer-text">
+        © <span id="year"></span> AgroVision. Концепт-панель для детекции и подсчёта растений.
+      </div>
+      <div class="footer-text">
+        Backend: FastAPI · Модель: YOLOv8 · GPU: NVIDIA
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"
+  ></script>
+
+  <!-- Логика фронтенда -->
+  <script>
+    // === Настройки ===
+    // Автоматическое определение адреса API
+    // Если фронтенд и API на одном сервере - используем относительный путь
+    // Иначе - определяем по хосту
+    function getApiBaseUrl() {
+      // Проверяем, открыт ли сайт с того же порта, что и API (8000)
+      const currentPort = window.location.port;
+      
+      // Если порт 8000 или пустой (значит тот же хост) - используем относительный путь
+      if (currentPort === "8000" || currentPort === "" || currentPort === "443" || currentPort === "80") {
+        return ""; // Относительный путь - тот же хост и порт
+      }
+      
+      // Иначе определяем по хосту
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      
+      // Если открыто с localhost или 127.0.0.1
+      if (hostname === "localhost" || hostname === "127.0.0.1") {
+        const apiProtocol = protocol === "https:" ? "https" : "http";
+        return `${apiProtocol}://127.0.0.1:8000`;
+      }
+      
+      // Иначе используем тот же протокол и хост, но порт 8000 для API
+      const apiProtocol = protocol === "https:" ? "https" : "http";
+      return `${apiProtocol}://${hostname}:8000`;
+    }
+    const API_BASE_URL = getApiBaseUrl();
+    const DETECT_ENDPOINT = "/api/detect";
+
+    // === Общие элементы ===
+    const summaryPlantsEl = document.getElementById("summaryPlants");
+    const summaryLatencyEl = document.getElementById("summaryLatency");
+    const summaryFpsEl = document.getElementById("summaryFps");
+    const summaryModelEl = document.getElementById("summaryModel");
+    const summaryStatusEl = document.getElementById("summaryStatus");
+
+    const metricTotalEl = document.getElementById("metricTotal");
+    const metricClassesEl = document.getElementById("metricClasses");
+    const classStatsBodyEl = document.getElementById("classStatsBody");
+    const lastUpdatedEl = document.getElementById("lastUpdated");
+    const statusPillEl = document.getElementById("statusPill");
+    const logAreaEl = document.getElementById("logArea");
+    const clearLogBtn = document.getElementById("clearLogBtn");
+
+    const yearEl = document.getElementById("year");
+    yearEl.textContent = new Date().getFullYear();
+
+    function log(message) {
+      const ts = new Date().toLocaleTimeString();
+      logAreaEl.textContent = `[${ts}] ${message}\n` + logAreaEl.textContent;
+    }
+
+    clearLogBtn.addEventListener("click", () => {
+      logAreaEl.textContent = "";
+    });
+
+    function setStatusPill(ok, text) {
+      if (!text) text = ok ? "Готово" : "Ошибка";
+      statusPillEl.classList.remove("d-none");
+      statusPillEl.innerHTML = ok
+        ? `<i class="bi bi-check-circle"></i><span>${text}</span>`
+        : `<i class="bi bi-exclamation-triangle"></i><span>${text}</span>`;
+      statusPillEl.style.backgroundColor = ok ? "rgba(21,128,61,0.12)" : "rgba(220,38,38,0.12)";
+      statusPillEl.style.color = ok ? "#bbf7d0" : "#fecaca";
+      statusPillEl.style.borderColor = ok ? "rgba(34,197,94,0.4)" : "rgba(248,113,113,0.5)";
+    }
+
+    function updateSummary(result, latencyMs, fps) {
+      if (!result) return;
+      summaryPlantsEl.textContent = result.total_plants ?? "0";
+      summaryLatencyEl.textContent = latencyMs
+        ? latencyMs.toFixed(0) + " мс"
+        : "–";
+      summaryFpsEl.textContent = fps ? fps.toFixed(1) : "–";
+      summaryModelEl.textContent = result.meta?.model_name || "–";
+      summaryStatusEl.textContent =
+        "Модель " +
+        (result.meta?.model_name || "") +
+        " успешно обработала изображение. Растений обнаружено: " +
+        (result.total_plants ?? 0) +
+        ".";
+    }
+
+    function updateClassStats(result) {
+      if (!result || !Array.isArray(result.plants)) {
+        metricTotalEl.textContent = "–";
+        metricClassesEl.textContent = "–";
+        classStatsBodyEl.innerHTML =
+          `<tr class="small text-secondary"><td colspan="3">Пока нет данных. Запустите анализ.</td></tr>`;
+        return;
+      }
+      const plants = result.plants;
+      const total = plants.length;
+      metricTotalEl.textContent = String(total);
+
+      const counts = {};
+      for (const p of plants) {
+        const cls = p.crop_type || "plant";
+        counts[cls] = (counts[cls] || 0) + 1;
+      }
+      const classes = Object.keys(counts);
+      metricClassesEl.textContent = String(classes.length || "–");
+
+      if (!classes.length) {
+        classStatsBodyEl.innerHTML =
+          `<tr class="small text-secondary"><td colspan="3">Классы не определены моделью.</td></tr>`;
+        return;
+      }
+
+      let html = "";
+      for (const cls of classes) {
+        const cnt = counts[cls];
+        const share = total > 0 ? ((cnt / total) * 100).toFixed(1) : "0.0";
+        html += `
+          <tr>
+            <td class="small">${cls}</td>
+            <td class="small">${cnt}</td>
+            <td class="small">
+              <div class="d-flex align-items-center gap-1">
+                <div class="flex-grow-1">
+                  <div class="progress progress-sm" style="height: 4px;">
+                    <div class="progress-bar bg-success" style="width: ${share}%;"></div>
+                  </div>
+                </div>
+                <span>${share}%</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+      classStatsBodyEl.innerHTML = html;
+
+      lastUpdatedEl.textContent = "Последнее обновление: " + new Date().toLocaleTimeString();
+    }
+
+    // === Работа с изображением (upload) ===
+
+    const imageInput = document.getElementById("imageInput");
+    const analyzeImageBtn = document.getElementById("analyzeImageBtn");
+    const clearImageBtn = document.getElementById("clearImageBtn");
+    const uploadPreview = document.getElementById("uploadPreview");
+    const uploadCanvas = document.getElementById("uploadCanvas");
+    const uploadPlaceholder = document.getElementById("uploadPlaceholder");
+
+    let selectedImageFile = null;
+
+    imageInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) {
+        resetUploadPreview();
+        return;
+      }
+      selectedImageFile = file;
+      const reader = new FileReader();
+      reader.onload = function (evt) {
+        uploadPreview.src = evt.target.result;
+        uploadPreview.style.display = "block";
+        uploadCanvas.style.display = "none";
+        uploadPlaceholder.style.display = "none";
+        analyzeImageBtn.disabled = false;
+        clearImageBtn.disabled = false;
+        log("Загружен файл: " + file.name);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function resetUploadPreview() {
+      selectedImageFile = null;
+      uploadPreview.src = "";
+      uploadPreview.style.display = "none";
+      uploadCanvas.style.display = "none";
+      uploadPlaceholder.style.display = "flex";
+      analyzeImageBtn.disabled = true;
+      clearImageBtn.disabled = true;
+    }
+
+    clearImageBtn.addEventListener("click", () => {
+      imageInput.value = "";
+      resetUploadPreview();
+      log("Превью очищено.");
+    });
+
+    async function analyzeImage() {
+      if (!selectedImageFile) return;
+      analyzeImageBtn.disabled = true;
+      analyzeImageBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Анализ...`;
+
+      try {
+        const formData = new FormData();
+        formData.append("image", selectedImageFile, selectedImageFile.name);
+
+        const t0 = performance.now();
+        const resp = await fetch(API_BASE_URL + DETECT_ENDPOINT, {
+          method: "POST",
+          body: formData,
+        });
+        const t1 = performance.now();
+
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        const data = await resp.json();
+        log("Анализ изображения завершён. total_plants=" + data.total_plants);
+        const latency = t1 - t0;
+        updateSummary(data, latency, null);
+        updateClassStats(data);
+        setStatusPill(true, "Изображение");
+
+        // рисуем bbox на canvas
+        await drawDetectionsOnUploadCanvas(data);
+
+      } catch (err) {
+        console.error(err);
+        log("Ошибка анализа изображения: " + err.message);
+        setStatusPill(false, "Ошибка");
+        summaryStatusEl.textContent = "Ошибка анализа: " + err.message;
+      } finally {
+        analyzeImageBtn.disabled = false;
+        analyzeImageBtn.innerHTML = `<span><i class="bi bi-play-circle me-1"></i>Запустить анализ</span>`;
+      }
+    }
+
+    analyzeImageBtn.addEventListener("click", analyzeImage);
+
+    async function drawDetectionsOnUploadCanvas(result) {
+      if (!uploadPreview.src) return;
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = function () {
+          const meta = result.meta || {};
+          const origW = meta.image_width || img.width;
+          const origH = meta.image_height || img.height;
+
+          const displayW = uploadPreview.clientWidth || img.width;
+          const displayH = uploadPreview.clientHeight || img.height;
+
+          uploadCanvas.width = displayW;
+          uploadCanvas.height = displayH;
+
+          const scaleX = displayW / origW;
+          const scaleY = displayH / origH;
+
+          const ctx = uploadCanvas.getContext("2d");
+
+          // рисуем изображение
+          ctx.clearRect(0, 0, displayW, displayH);
+          ctx.drawImage(img, 0, 0, displayW, displayH);
+
+          // верхний слой рамок
+          ctx.lineWidth = 2;
+          ctx.font = "14px Inter, system-ui, sans-serif";
+
+          if (Array.isArray(result.plants)) {
+            for (const p of result.plants) {
+              const [xmin, ymin, xmax, ymax] = p.bbox;
+              const sx = xmin * scaleX;
+              const sy = ymin * scaleY;
+              const sw = (xmax - xmin) * scaleX;
+              const sh = (ymax - ymin) * scaleY;
+
+              ctx.strokeStyle = "#22c55e";
+              ctx.strokeRect(sx, sy, sw, sh);
+
+              const label =
+                (p.crop_type || "plant") +
+                " " +
+                ((p.confidence || 0) * 100).toFixed(1) +
+                "%";
+
+              const textX = sx + 3;
+              const textY = sy - 4 < 12 ? sy + 14 : sy - 4;
+
+              ctx.fillStyle = "rgba(0,0,0,0.6)";
+              const textWidth = ctx.measureText(label).width + 6;
+              ctx.fillRect(textX - 3, textY - 13, textWidth, 16);
+
+              ctx.fillStyle = "#f9fafb";
+              ctx.fillText(label, textX, textY);
+            }
+          }
+
+          uploadPreview.style.display = "none";
+          uploadCanvas.style.display = "block";
+          resolve();
+        };
+        img.src = uploadPreview.src;
+      });
+    }
+
+    // === Работа с камерой ===
+
+    const startCameraBtn = document.getElementById("startCameraBtn");
+    const stopCameraBtn = document.getElementById("stopCameraBtn");
+    const fpsInput = document.getElementById("fpsInput");
+    const cameraVideo = document.getElementById("cameraVideo");
+    const cameraCanvas = document.getElementById("cameraCanvas");
+    const cameraPlaceholder = document.getElementById("cameraPlaceholder");
+    const cameraStatus = document.getElementById("cameraStatus");
+
+    let cameraStream = null;
+    let cameraIntervalId = null;
+    let cameraSending = false;
+    let lastFrameTs = null;
+
+    // Проверка поддержки MediaDevices API
+    function checkCameraSupport() {
+      // Проверка на наличие navigator.mediaDevices
+      if (!navigator.mediaDevices) {
+        // Fallback для старых браузеров
+        if (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia) {
+          return {
+            supported: true,
+            useLegacy: true
+          };
+        }
+        return {
+          supported: false,
+          error: "MediaDevices API не поддерживается в этом браузере. Обновите браузер или используйте загрузку изображений."
+        };
+      }
+      
+      if (!navigator.mediaDevices.getUserMedia) {
+        return {
+          supported: false,
+          error: "getUserMedia не поддерживается в этом браузере. Используйте загрузку изображений."
+        };
+      }
+      
+      // Проверка на безопасный контекст (HTTPS, localhost или локальная сеть)
+      const hostname = window.location.hostname;
+      const isSecure = window.location.protocol === "https:" || 
+                       hostname === "localhost" || 
+                       hostname === "127.0.0.1" ||
+                       hostname.startsWith("192.168.") ||
+                       hostname.startsWith("10.") ||
+                       hostname.startsWith("172.16.") ||
+                       hostname.startsWith("172.17.") ||
+                       hostname.startsWith("172.18.") ||
+                       hostname.startsWith("172.19.") ||
+                       hostname.startsWith("172.20.") ||
+                       hostname.startsWith("172.21.") ||
+                       hostname.startsWith("172.22.") ||
+                       hostname.startsWith("172.23.") ||
+                       hostname.startsWith("172.24.") ||
+                       hostname.startsWith("172.25.") ||
+                       hostname.startsWith("172.26.") ||
+                       hostname.startsWith("172.27.") ||
+                       hostname.startsWith("172.28.") ||
+                       hostname.startsWith("172.29.") ||
+                       hostname.startsWith("172.30.") ||
+                       hostname.startsWith("172.31.");
+      
+      if (!isSecure) {
+        return {
+          supported: false,
+          error: "⚠️ Доступ к камере требует безопасное соединение (HTTPS) или локальную сеть.\n\nНа телефоне многие браузеры блокируют камеру через HTTP.\n\n💡 Решение: Используйте вкладку 'Загрузка изображения' для работы с фото."
+        };
+      }
+      
+      return { supported: true, useLegacy: false };
+    }
+
+    async function startCamera() {
+      if (cameraStream) return;
+      
+      // Проверка поддержки камеры
+      const support = checkCameraSupport();
+      if (!support.supported) {
+        cameraStatus.textContent = "Ошибка: " + support.error;
+        log("Ошибка: " + support.error);
+        alert(support.error);
+        return;
+      }
+
+      try {
+        // Получаем доступ к камере с обработкой ошибок
+        const constraints = {
+          video: { 
+            width: { ideal: 960 },
+            height: { ideal: 540 },
+            facingMode: "environment" // Задняя камера на телефоне
+          },
+          audio: false,
+        };
+        
+        // Поддержка старых браузеров
+        let stream;
+        if (support.useLegacy) {
+          // Fallback для старых браузеров
+          const getUserMedia = navigator.getUserMedia || 
+                              navigator.webkitGetUserMedia || 
+                              navigator.mozGetUserMedia;
+          stream = await new Promise((resolve, reject) => {
+            getUserMedia.call(navigator, constraints, resolve, reject);
+          });
+        } else {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        }
+        
+        cameraStream = stream;
+        cameraVideo.srcObject = cameraStream;
+        cameraVideo.style.display = "block";
+        cameraCanvas.style.display = "block";
+        cameraPlaceholder.style.display = "none";
+        cameraStatus.textContent = "Камера включена. Идёт захват кадров и отправка на сервер.";
+
+        startCameraBtn.disabled = true;
+        stopCameraBtn.disabled = false;
+
+        const fps = parseFloat(fpsInput.value) || 2;
+        const interval = 1000 / fps;
+        if (cameraIntervalId) clearInterval(cameraIntervalId);
+        cameraIntervalId = setInterval(() => sendCameraFrame(fps), interval);
+
+        log("Камера запущена, FPS=" + fps);
+      } catch (err) {
+        console.error(err);
+        let errorMsg = "❌ Ошибка доступа к камере: ";
+        let detailedMsg = "";
+        
+        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+          errorMsg = "❌ Доступ к камере запрещён";
+          detailedMsg = "Разрешите доступ к камере в настройках браузера:\n• Chrome/Edge: Настройки → Конфиденциальность → Разрешения сайта → Камера\n• Safari: Настройки → Safari → Камера\n• Firefox: Настройки → Конфиденциальность → Разрешения";
+        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
+          errorMsg = "❌ Камера не найдена";
+          detailedMsg = "Убедитесь, что устройство имеет камеру и она не заблокирована.";
+        } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+          errorMsg = "❌ Камера занята";
+          detailedMsg = "Камера используется другим приложением. Закройте другие приложения, использующие камеру.";
+        } else if (err.name === "OverconstrainedError" || err.name === "ConstraintNotSatisfiedError") {
+          errorMsg = "❌ Неподдерживаемые параметры камеры";
+          detailedMsg = "Камера не поддерживает запрошенные параметры. Попробуйте снова.";
+        } else if (err.message && err.message.includes("getUserMedia")) {
+          errorMsg = "❌ Камера недоступна через HTTP";
+          detailedMsg = "На мобильных устройствах многие браузеры требуют HTTPS для доступа к камере.\n\n💡 Решение: Используйте вкладку 'Загрузка изображения' для работы с фото из галереи.";
+        } else {
+          errorMsg += (err.message || err.name || err.toString());
+          detailedMsg = "Попробуйте использовать вкладку 'Загрузка изображения' вместо камеры.";
+        }
+        
+        cameraStatus.textContent = errorMsg;
+        log("Ошибка запуска камеры: " + errorMsg + " | " + (err.message || err.name));
+        
+        if (detailedMsg) {
+          alert(errorMsg + "\n\n" + detailedMsg);
+        }
+        log("Ошибка запуска камеры: " + errorMsg);
+        alert("⚠️ " + errorMsg);
+      }
+    }
+
+    function stopCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((t) => t.stop());
+        cameraStream = null;
+      }
+      if (cameraIntervalId) {
+        clearInterval(cameraIntervalId);
+        cameraIntervalId = null;
+      }
+      cameraVideo.style.display = "none";
+      cameraCanvas.style.display = "none";
+      cameraPlaceholder.style.display = "flex";
+      startCameraBtn.disabled = false;
+      stopCameraBtn.disabled = true;
+      cameraStatus.textContent = "Камера выключена.";
+      log("Камера остановлена.");
+    }
+
+    async function sendCameraFrame(fps) {
+      if (!cameraStream || cameraSending) return;
+      if (cameraVideo.videoWidth === 0 || cameraVideo.videoHeight === 0) return;
+      cameraSending = true;
+
+      const w = cameraVideo.videoWidth;
+      const h = cameraVideo.videoHeight;
+      cameraCanvas.width = w;
+      cameraCanvas.height = h;
+
+      const ctx = cameraCanvas.getContext("2d");
+      ctx.drawImage(cameraVideo, 0, 0, w, h);
+
+      cameraCanvas.toBlob(async (blob) => {
+        if (!blob) {
+          cameraSending = false;
+          return;
+        }
+        const formData = new FormData();
+        formData.append("image", blob, "frame.jpg");
+
+        const t0 = performance.now();
+        try {
+          const resp = await fetch(API_BASE_URL + DETECT_ENDPOINT, {
+            method: "POST",
+            body: formData,
+          });
+          const t1 = performance.now();
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          const data = await resp.json();
+
+          const latency = t1 - t0;
+          const now = performance.now();
+          let currentFps = fps;
+          if (lastFrameTs != null) {
+            const dt = now - lastFrameTs;
+            if (dt > 0) currentFps = 1000 / dt;
+          }
+          lastFrameTs = now;
+
+          drawDetectionsOnCameraCanvas(ctx, data, w, h);
+          updateSummary(data, latency, currentFps);
+          updateClassStats(data);
+          setStatusPill(true, "Камера");
+          cameraStatus.textContent =
+            `Камера активна. Растений=${data.total_plants ?? 0}, ` +
+            `латентность=${latency.toFixed(0)} мс, FPS≈${currentFps.toFixed(1)}`;
+        } catch (err) {
+          console.error(err);
+          log("Ошибка обработки кадра с камеры: " + err.message);
+          cameraStatus.textContent = "Ошибка запроса: " + err.message;
+          setStatusPill(false, "Камера");
+        } finally {
+          cameraSending = false;
+        }
+      }, "image/jpeg", 0.8);
+    }
+
+    function drawDetectionsOnCameraCanvas(ctx, result, w, h) {
+      const meta = result.meta || {};
+      const origW = meta.image_width || w;
+      const origH = meta.image_height || h;
+      const scaleX = w / origW;
+      const scaleY = h / origH;
+
+      if (!Array.isArray(result.plants)) return;
+
+      ctx.lineWidth = 2;
+      ctx.font = "14px Inter, system-ui, sans-serif";
+
+      for (const p of result.plants) {
+        const [xmin, ymin, xmax, ymax] = p.bbox;
+        const sx = xmin * scaleX;
+        const sy = ymin * scaleY;
+        const sw = (xmax - xmin) * scaleX;
+        const sh = (ymax - ymin) * scaleY;
+
+        ctx.strokeStyle = "#22c55e";
+        ctx.strokeRect(sx, sy, sw, sh);
+
+        const label =
+          (p.crop_type || "plant") +
+          " " +
+          ((p.confidence || 0) * 100).toFixed(1) +
+          "%";
+
+        const textX = sx + 3;
+        const textY = sy - 4 < 12 ? sy + 14 : sy - 4;
+
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        const textWidth = ctx.measureText(label).width + 6;
+        ctx.fillRect(textX - 3, textY - 13, textWidth, 16);
+
+        ctx.fillStyle = "#f9fafb";
+        ctx.fillText(label, textX, textY);
+      }
+    }
+
+    startCameraBtn.addEventListener("click", startCamera);
+    stopCameraBtn.addEventListener("click", stopCamera);
+
+    // При переключении вкладок — если уходим с камеры, автоматически стоп
+    const cameraTab = document.getElementById("camera-tab");
+    const uploadTab = document.getElementById("upload-tab");
+    cameraTab.addEventListener("shown.bs.tab", () => {
+      cameraStatus.textContent = "Камера выключена. Нажмите «Включить камеру».";
+    });
+    uploadTab.addEventListener("shown.bs.tab", () => {
+      stopCamera();
+    });
+
+    log("Фронтенд AgroVision инициализирован. API: " + API_BASE_URL + DETECT_ENDPOINT);
+  </script>
+</body>
+</html>
