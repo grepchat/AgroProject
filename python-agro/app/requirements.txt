@@ -1,6 +1,0 @@
-fastapi
-uvicorn[standard]
-pydantic
-ultralytics
-numpy
-opencv-python
