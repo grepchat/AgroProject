@@ -1,0 +1,59 @@
+# =========================
+# OS / IDE
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+.vscode/
+.idea/
+.cursor/
+
+# =========================
+# Python: caches, venv, build
+# =========================
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+*.log
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+
+# =========================
+# Project-specific
+# =========================
+# HTTPS certificates should be generated locally
+Backend/certs/
+Frontend/certs/
+
+# Local weights/models can be huge.
+# Keep them in git ONLY if you intentionally want to ship them.
+# By default we ignore all .pt and then "unignore" the one needed for runtime.
+**/*.pt
+!Backend/weights/yolov8_flowers.pt
+
+# Datasets / training artifacts (usually very large)
+TrainingAndDatasets/datasets/
+TrainingAndDatasets/train/
+TrainingAndDatasets/runs/
+
+# =========================
+# Windows PowerShell temp
+# =========================
+*.tmp
+
